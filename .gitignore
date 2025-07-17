@@ -1,0 +1,5 @@
+__pychache__/
+venv/
+.pytest_cache/
+notebooks/
+.vscode/
