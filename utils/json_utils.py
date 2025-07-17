@@ -1,12 +1,11 @@
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
-
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 
 def decimal_default(obj):
     if isinstance(obj, Decimal):
         try:
-            quantized = obj.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-            # Force two decimal places in string format (e.g. "10.00")
-            return f"{quantized:.2f}"
+            # Round safely to 2 decimal places
+            rounded = obj.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            return f"{rounded:.2f}"  # Return as string to preserve .00
         except InvalidOperation:
-            return None  # or "NaN", or raise error
+            return None  # or "0.00"
     raise TypeError(f"Type {type(obj)} not serializable")
