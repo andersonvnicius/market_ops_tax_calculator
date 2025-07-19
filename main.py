@@ -16,10 +16,10 @@ def calculate_operation_total_volume(unit_cost: float, quantity: int) -> Decimal
 
 
 @round_decimal_output()
-def calculate_sell_operation_profit(
+def calculate_sell_operation_profit_or_loss(
     sell_qty: int, sell_unit_cost: float, current_weighted_average: Decimal
 ) -> Decimal:
-    """Calculate the profit (or loss) from a sell operation."""
+    """Calculate the profit or loss (if negative) from a sell operation."""
     return sell_qty * (Decimal(sell_unit_cost) - current_weighted_average)
 
 
@@ -33,40 +33,23 @@ def calculate_operation_profit_tax(
     return TAX_RATE_ON_PROFIT * (operation_profit - current_loss)
 
 
-def calculate_tax_on_large_operation(
-    operation_unit_cost: float,
-    operation_quantity: int,
-    current_position_profit: Decimal,
-    operation_profit: Decimal,
+@round_decimal_output()
+def calculate_current_position_loss(
+    current_loss: Decimal,
+    operation_profit_or_loss: Decimal,
+    _is_operation_over_volume_threshold: bool,
 ) -> Decimal:
-    """
-    Determine the tax to apply on a sell operation if the transaction volume exceeds the exemption threshold.
+    """Updates the current accumulated loss based on the result of a new operation."""
+    _is_loss_operation = True if operation_profit_or_loss < 0 else False
 
-    Args:
-        operation_unit_cost (float): Price per unit in the current operation.
-        operation_quantity (int): Number of units in the current operation.
-        current_position_profit (Decimal): Total profit accumulated so far.
-        operation_profit (Decimal): Profit from the current sell operation.
+    if _is_loss_operation:
+        current_loss -= operation_profit_or_loss
+    elif _is_operation_over_volume_threshold:
+        current_loss -= operation_profit_or_loss
+        if current_loss < 0:
+            current_loss = 0
 
-    Returns:
-        Decimal: Tax amount due. Zero if below threshold.
-    """
-    # If the total volume of the operation is less then the volume
-    # threshold, no taxes are applied
-    if (
-        calculate_operation_total_volume(operation_unit_cost, operation_quantity)
-        > TAX_FREE_LARGE_OPERATIONS_THRESHOLD
-    ):
-        # Calculating tax value for the operation
-        return calculate_operation_profit_tax(
-            operation_profit,
-            current_loss=(
-                current_position_profit * -1  # negative profit is positive loss
-                if current_position_profit < 0
-                else 0
-            ),
-        )
-    return Decimal(0)
+    return current_loss
 
 
 @round_decimal_output()
@@ -113,32 +96,41 @@ def get_market_operations_tax_list(operation_list: list[dict]) -> list[dict]:
     current_position = {
         "weighted_average": Decimal(operation_list[0]["unit-cost"]),
         "share_quantity": operation_list[0]["quantity"],
-        "profit": Decimal(0),
+        "loss": Decimal(0),
     }
     # First value for tax will always be zero
     operations_tax_list = [{"tax": Decimal(0)}]
 
     for operation in operation_list[1:]:
-        operation_taxes = {}
+        tax = 0
 
         if operation["operation"] == "sell":
-            operation_profit = calculate_sell_operation_profit(
+            operation_profit_or_loss = calculate_sell_operation_profit_or_loss(
                 operation["quantity"],
                 operation["unit-cost"],
                 current_position["weighted_average"],
             )
 
-            operation_taxes["over_big_transaction"] = calculate_tax_on_large_operation(
-                operation["unit-cost"],
-                operation["quantity"],
-                current_position_profit=current_position["profit"],
-                operation_profit=operation_profit,
+            _is_operation_over_volume_threshold = (
+                calculate_operation_total_volume(
+                    operation["unit-cost"], operation["quantity"]
+                )
+                > TAX_FREE_LARGE_OPERATIONS_THRESHOLD
             )
 
-            current_position["profit"] += operation_profit
+            if _is_operation_over_volume_threshold:
+                # Calculating tax value for the operation
+                tax = calculate_operation_profit_tax(
+                    operation_profit_or_loss, current_loss=current_position["loss"]
+                )
+
+            current_position["loss"] = calculate_current_position_loss(
+                current_position["loss"],
+                operation_profit_or_loss,
+                _is_operation_over_volume_threshold,
+            )
+
             current_position["share_quantity"] -= operation["quantity"]
-            if not current_position["share_quantity"]:
-                current_position["profit"] = 0
         else:
             # calculates new values for share qty and weighted avg, saves in memory
             current_position["weighted_average"] = calculate_weighted_avg(
@@ -149,7 +141,7 @@ def get_market_operations_tax_list(operation_list: list[dict]) -> list[dict]:
             )
             current_position["share_quantity"] += operation["quantity"]
 
-        operations_tax_list.append({"tax": Decimal(sum(operation_taxes.values()))})
+        operations_tax_list.append({"tax": Decimal(tax)})
 
     return json.dumps(operations_tax_list, default=decimal_default)
 
