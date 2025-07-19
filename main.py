@@ -1,6 +1,6 @@
-from decimal import Decimal
 import json
 import sys
+from decimal import Decimal
 
 from utils.decorators import round_decimal_output
 from utils.json_utils import decimal_default
@@ -31,6 +31,7 @@ def calculate_operation_profit_tax(
     if operation_profit < 0 or operation_profit < current_loss:
         return Decimal(0)
     return TAX_RATE_ON_PROFIT * (operation_profit - current_loss)
+
 
 def calculate_tax_on_large_operation(
     operation_unit_cost: float,
@@ -63,9 +64,10 @@ def calculate_tax_on_large_operation(
                 current_position_profit * -1  # negative profit is positive loss
                 if current_position_profit < 0
                 else 0
-            )
+            ),
         )
     return Decimal(0)
+
 
 @round_decimal_output()
 def calculate_weighted_avg(
@@ -91,6 +93,7 @@ def calculate_weighted_avg(
         + (buy_share_qty * Decimal(buy_share_value))
     ) / (current_share_qty + buy_share_qty)
     return weighted_avg
+
 
 def get_market_operations_tax_list(operation_list: list[dict]) -> list[dict]:
     """
@@ -135,7 +138,7 @@ def get_market_operations_tax_list(operation_list: list[dict]) -> list[dict]:
             current_position["profit"] += operation_profit
             current_position["share_quantity"] -= operation["quantity"]
             if not current_position["share_quantity"]:
-                current_position["profit"]=0
+                current_position["profit"] = 0
         else:
             # calculates new values for share qty and weighted avg, saves in memory
             current_position["weighted_average"] = calculate_weighted_avg(
@@ -166,4 +169,3 @@ def main():
 
 if __name__ == "__main__":
     main()
- 
