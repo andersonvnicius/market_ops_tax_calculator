@@ -106,3 +106,7 @@ python main.py <<EOF
 [{"operation": "buy", "unit-cost": 20.00, "quantity": 10000}, {"operation": "sell", "unit-cost": 10.00, "quantity": 5000}]
 EOF
 ```
+
+## Working principle diagram (in progress)
+
+![image](diagram.png)
