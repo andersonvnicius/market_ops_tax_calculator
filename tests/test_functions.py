@@ -3,8 +3,8 @@ from main import (
     TAX_FREE_LARGE_OPERATIONS_THRESHOLD,
     calculate_operation_profit_tax,
     calculate_operation_total_volume,
-    calculate_sell_operation_profit,
-    calculate_tax_on_large_operation,
+    calculate_sell_operation_profit_or_loss,
+    calculate_current_position_loss,
     calculate_weighted_avg,
 )
 
@@ -20,7 +20,7 @@ def test_standard_weighted_avg():
     )
     assert result == Decimal(
         "15.00"
-    ), "Should calculate correct weighted average when buying additional shares"
+    )  # Should calculate correct weighted average when buying additional shares"
 
 
 def test_weighted_avg_with_zero_current():
@@ -33,7 +33,7 @@ def test_weighted_avg_with_zero_current():
     )
     assert result == Decimal(
         "15.00"
-    ), "With zero current shares, should equal the buy price"
+    )  # With zero current shares, should equal the buy price"
 
 
 # Tests for calculate_operation_total_volume
@@ -42,65 +42,67 @@ def test_standard_volume():
     result = calculate_operation_total_volume(10.00, 5)
     assert result == Decimal(
         "50.00"
-    ), "Should correctly calculate total volume (price * quantity)"
+    )  # Should correctly calculate total volume (price * quantity)"
 
 
 def test_volume_with_zero_quantity():
     """Test volume calculation with zero quantity"""
     result = calculate_operation_total_volume(10.00, 0)
-    assert result == Decimal("0.00"), "Volume should be zero when quantity is zero"
+    assert result == Decimal("0.00")  # Volume should be zero when quantity is zero"
 
 
 def test_volume_with_zero_price():
     """Test volume calculation with zero price"""
     result = calculate_operation_total_volume(0.00, 5)
-    assert result == Decimal("0.00"), "Volume should be zero when price is zero"
+    assert result == Decimal("0.00")  # Volume should be zero when price is zero"
 
 
 # Tests for calculate_sell_operation_profit
 def test_profit_positive():
     """Test profit calculation when sell price > weighted average"""
-    result = calculate_sell_operation_profit(
+    result = calculate_sell_operation_profit_or_loss(
         sell_qty=10, sell_unit_cost=15.00, current_weighted_average=Decimal("10.00")
     )
     assert result == Decimal(
         "50.00"
-    ), "Should calculate positive profit correctly (15 - 10) * 10 = 50"
+    )  # Should calculate positive profit correctly (15 - 10) * 10 = 50"
 
 
 def test_profit_zero():
     """Test profit calculation when sell price equals weighted average"""
-    result = calculate_sell_operation_profit(
+    result = calculate_sell_operation_profit_or_loss(
         sell_qty=5, sell_unit_cost=20.00, current_weighted_average=Decimal("20.00")
     )
     assert result == Decimal(
         "0.00"
-    ), "Profit should be zero when sell price equals cost basis"
+    )  # Profit should be zero when sell price equals cost basis"
 
 
 def test_profit_negative():
     """Test profit calculation when sell price < weighted average"""
-    result = calculate_sell_operation_profit(
+    result = calculate_sell_operation_profit_or_loss(
         sell_qty=3, sell_unit_cost=9.00, current_weighted_average=Decimal("10.00")
     )
     assert result == Decimal(
         "-3.00"
-    ), "Should calculate negative profit correctly (9 - 10) * 3 = -3"
+    )  # Should calculate negative profit correctly (9 - 10) * 3 = -3"
 
 
 def test_profit_with_zero_quantity():
     """Test profit calculation with zero quantity sold"""
-    result = calculate_sell_operation_profit(
+    result = calculate_sell_operation_profit_or_loss(
         sell_qty=0, sell_unit_cost=15.00, current_weighted_average=Decimal("10.00")
     )
-    assert result == Decimal("0.00"), "Profit should be zero when quantity sold is zero"
+    assert result == Decimal(
+        "0.00"
+    )  # Profit should be zero when quantity sold is zero"
 
 
 # Tests for calculate_operation_profit_tax
 def test_operation_profit_tax_profit_no_accumulated_loss():
     """Test tax calculation when there's profit and no accumulated loss"""
     result = calculate_operation_profit_tax(operation_profit=Decimal("1000"))
-    assert result == Decimal("200"), "Should apply tax rate to full profit"
+    assert result == Decimal("200")  # Should apply tax rate to full profit"
 
 
 def test_operation_profit_tax_with_accumulated_loss():
@@ -108,7 +110,7 @@ def test_operation_profit_tax_with_accumulated_loss():
     result = calculate_operation_profit_tax(
         operation_profit=Decimal("1000"), current_loss=Decimal("500")
     )
-    assert result == Decimal("100"), "Should apply tax rate to (profit - loss)"
+    assert result == Decimal("100")  # Should apply tax rate to (profit - loss)"
 
 
 def test_operation_loss_tax():
@@ -116,7 +118,7 @@ def test_operation_loss_tax():
     result = calculate_operation_profit_tax(
         operation_profit=Decimal("-1000"), current_loss=Decimal("500")
     )
-    assert result == 0, "Should return 0 when profit is negative"
+    assert result == 0  # Should return 0 when profit is negative"
 
 
 def test_operation_profit_tax_with_accumulated_loss_higher_than_current():
@@ -124,7 +126,7 @@ def test_operation_profit_tax_with_accumulated_loss_higher_than_current():
     result = calculate_operation_profit_tax(
         operation_profit=Decimal("1000"), current_loss=Decimal("1500")
     )
-    assert result == 0, "Should return 0 when loss > profit"
+    assert result == 0  # Should return 0 when loss > profit"
 
 
 def test_operation_profit_equals_accumulated_loss():
@@ -132,7 +134,7 @@ def test_operation_profit_equals_accumulated_loss():
     result = calculate_operation_profit_tax(
         operation_profit=Decimal("1000"), current_loss=Decimal("1000")
     )
-    assert result == 0, "Should return 0 when profit exactly equals loss"
+    assert result == 0  # Should return 0 when profit exactly equals loss"
 
 
 def test_zero_profit_with_accumulated_loss():
@@ -140,74 +142,49 @@ def test_zero_profit_with_accumulated_loss():
     result = calculate_operation_profit_tax(
         operation_profit=Decimal("0"), current_loss=Decimal("500")
     )
-    assert result == 0, "Should return 0 when profit is zero"
+    assert result == 0  # Should return 0 when profit is zero"
 
 
-# Tests for calculate_tax_on_large_operation
-def test_below_threshold_no_tax():
-    """Test that no tax is applied when operation volume is below threshold"""
-    result = calculate_tax_on_large_operation(
-        operation_unit_cost=100.00,
-        operation_quantity=100,  # 100 * 100 = 10,000 < 20,000 threshold
-        current_position_profit=Decimal("5000.00"),
-        operation_profit=Decimal("2000.00"),
+# Tests for calculate_current_position_loss
+def test_calculate_current_position_loss_loss_operation_adds_to_loss():
+    """Test case where a loss operation increases the current accumulated loss"""
+    current_loss = Decimal("100")
+    operation_profit_or_loss = Decimal("-50")
+    result = calculate_current_position_loss(
+        current_loss,
+        operation_profit_or_loss,
+        _is_operation_over_volume_threshold=False,
     )
-    assert result == Decimal("0.00"), "Should return 0 when below volume threshold"
+    assert result == Decimal("150")  # Loss should be added to current loss
 
 
-def test_above_threshold_with_profit():
-    """Test tax calculation when operation exceeds threshold and has profit"""
-    operation_profit = Decimal("5000.00")
-    expected_tax = calculate_operation_profit_tax(operation_profit)
-
-    result = calculate_tax_on_large_operation(
-        operation_unit_cost=300.00,
-        operation_quantity=100,  # 300 * 100 = 30,000 > 20,000 threshold
-        current_position_profit=Decimal("10000.00"),
-        operation_profit=operation_profit,
+def test_calculate_current_position_loss_profit_operation_above_threshold_reduces_loss():
+    """Test case where a profit above volume threshold reduces the accumulated loss"""
+    current_loss = Decimal("100")
+    operation_profit_or_loss = Decimal("30")
+    result = calculate_current_position_loss(
+        current_loss, operation_profit_or_loss, _is_operation_over_volume_threshold=True
     )
-    assert (
-        result == expected_tax
-    ), "Should calculate tax when above threshold with profit"
+    assert result == Decimal("70")  # Profit reduces the loss by its value
 
 
-def test_above_threshold_with_loss():
-    """Test no tax when operation exceeds threshold but has overall loss"""
-    result = calculate_tax_on_large_operation(
-        operation_unit_cost=300.00,
-        operation_quantity=100,  # 30,000 > threshold
-        current_position_profit=Decimal("-5000.00"),  # negative profit
-        operation_profit=Decimal("2000.00"),
+def test_calculate_current_position_loss_profit_operation_above_threshold_resets_loss_to_zero():
+    """Test case where profit above threshold is larger than loss and resets it to zero"""
+    current_loss = Decimal("20")
+    operation_profit_or_loss = Decimal("50")
+    result = calculate_current_position_loss(
+        current_loss, operation_profit_or_loss, _is_operation_over_volume_threshold=True
     )
-    # Should apply loss offset (2000 - 5000 = -3000) which results in 0 tax
-    assert result == Decimal(
-        "0.00"
-    ), "Should return 0 when effective profit is negative"
+    assert result == Decimal("0")  # Profit > loss, so loss is reset to 0
 
 
-def test_negative_profit_operation():
-    """Test with negative operation profit (should result in 0 tax)"""
-    result = calculate_tax_on_large_operation(
-        operation_unit_cost=300.00,
-        operation_quantity=100,  # 30,000 > threshold
-        current_position_profit=Decimal("5000.00"),
-        operation_profit=Decimal("-2000.00"),  # negative profit
+def test_calculate_current_position_loss_profit_operation_below_threshold_does_not_affect_loss():
+    """Test case where profit below threshold does not reduce accumulated loss"""
+    current_loss = Decimal("80")
+    operation_profit_or_loss = Decimal("30")
+    result = calculate_current_position_loss(
+        current_loss,
+        operation_profit_or_loss,
+        _is_operation_over_volume_threshold=False,
     )
-    assert result == Decimal(
-        "0.00"
-    ), "Should return 0 when operation profit is negative"
-
-
-# TESTING DECIMAL PRECISION !!
-def test_precision_calculation():
-    """Test that decimal precision is maintained in calculations"""
-    result = calculate_tax_on_large_operation(
-        operation_unit_cost=200.01,
-        operation_quantity=100,  # 20,001 > 20,000 threshold
-        current_position_profit=Decimal("1234.56"),
-        operation_profit=Decimal("789.01"),
-    )
-    # Verify the calculation maintains precision
-    expected_volume = Decimal("200.01") * 100
-    assert expected_volume > TAX_FREE_LARGE_OPERATIONS_THRESHOLD
-    assert isinstance(result, Decimal), "Result should maintain Decimal type"
+    assert result == Decimal("80")  # Profit ignored since it's below the threshold
