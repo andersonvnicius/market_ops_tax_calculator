@@ -107,6 +107,8 @@ python main.py <<EOF
 EOF
 ```
 
-## Working principle diagram (in progress)
+## Working principle diagram
 
-![image](diagram.png)
+![image](images/diagram.png)
+
+![image](images/diagram2.png)
