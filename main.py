@@ -1,5 +1,6 @@
 from decimal import Decimal
 import json
+import sys
 
 from utils.decorators import round_decimal_output
 from utils.json_utils import decimal_default
@@ -28,9 +29,8 @@ def calculate_operation_profit_tax(
 ) -> Decimal:
     """Calculate the tax owed on a profitable sell operation."""
     if operation_profit < 0 or operation_profit < current_loss:
-        return 0
+        return Decimal(0)
     return TAX_RATE_ON_PROFIT * (operation_profit - current_loss)
-
 
 def calculate_tax_on_large_operation(
     operation_unit_cost: float,
@@ -58,15 +58,14 @@ def calculate_tax_on_large_operation(
     ):
         # Calculating tax value for the operation
         return calculate_operation_profit_tax(
-            operation_profit, 
+            operation_profit,
             current_loss=(
                 current_position_profit * -1  # negative profit is positive loss
                 if current_position_profit < 0
                 else 0
             )
         )
-    return 0
-
+    return Decimal(0)
 
 @round_decimal_output()
 def calculate_weighted_avg(
@@ -93,7 +92,6 @@ def calculate_weighted_avg(
     ) / (current_share_qty + buy_share_qty)
     return weighted_avg
 
-
 def get_market_operations_tax_list(operation_list: list[dict]) -> list[dict]:
     """
     Calculate taxes owed for a sequence of market operations.
@@ -107,7 +105,7 @@ def get_market_operations_tax_list(operation_list: list[dict]) -> list[dict]:
     Returns:
         str (JSON): List of dicts with tax values for each operation, serialized to JSON.
     """
-    # The first operation is always a 'buy', so the initial average price, 
+    # The first operation is always a 'buy', so the initial average price,
     # share quantity, and profit are directly taken from this first entry.
     current_position = {
         "weighted_average": Decimal(operation_list[0]["unit-cost"]),
@@ -136,6 +134,8 @@ def get_market_operations_tax_list(operation_list: list[dict]) -> list[dict]:
 
             current_position["profit"] += operation_profit
             current_position["share_quantity"] -= operation["quantity"]
+            if not current_position["share_quantity"]:
+                current_position["profit"]=0
         else:
             # calculates new values for share qty and weighted avg, saves in memory
             current_position["weighted_average"] = calculate_weighted_avg(
@@ -146,15 +146,24 @@ def get_market_operations_tax_list(operation_list: list[dict]) -> list[dict]:
             )
             current_position["share_quantity"] += operation["quantity"]
 
-        operations_tax_list.append({"tax": sum(operation_taxes.values())})
+        operations_tax_list.append({"tax": Decimal(sum(operation_taxes.values()))})
 
     return json.dumps(operations_tax_list, default=decimal_default)
 
 
+def main():
+    for line in sys.stdin:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            operation_list = json.loads(line)
+            tax_result = get_market_operations_tax_list(operation_list)
+            print(tax_result)
+        except Exception as e:
+            print(f"Error processing line: {e}", file=sys.stderr)
+
+
 if __name__ == "__main__":
-    operation_list = [
-        {"operation": "buy", "unit-cost": 10.00, "quantity": 100000},
-        {"operation": "sell", "unit-cost": 20.00, "quantity": 5000},
-        {"operation": "sell", "unit-cost": 15.00, "quantity": 5000},
-    ]
-    print(get_market_operations_tax_list(operation_list))
+    main()
+ 
