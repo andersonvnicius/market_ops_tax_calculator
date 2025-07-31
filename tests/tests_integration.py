@@ -136,6 +136,17 @@ def run_cli_input(input_data: str) -> list:
                 ]
             ],
         ),
+        # CASE 10
+        (
+            '[{"operation": "buy", "unit-cost": 10000.00, "quantity": 10}, '
+            '{"operation": "sell", "unit-cost": 11000.00, "quantity": 20}] ',
+            [
+                [
+                    {"tax": "0.00"},
+                    {"error": "Can't sell more stocks than you have"},
+                ]
+            ],
+        ),
     ],
 )
 def test_integration_cases(input_text, expected):

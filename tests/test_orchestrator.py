@@ -1,12 +1,12 @@
 from decimal import Decimal
 import json
-from main import get_market_operations_tax_list
+from main import orchestrator
 
 
 def test_single_buy_operation():
     """Test with just a single buy operation (should return [0])"""
     operations = [{"operation": "buy", "unit-cost": 10.00, "quantity": 100}]
-    result = json.loads(get_market_operations_tax_list(operations))
+    result = json.loads(orchestrator(operations))
     assert result == [{"tax": "0.00"}]
 
 
@@ -20,7 +20,7 @@ def test_buy_then_sell_below_threshold():
             "quantity": 10,
         },  # 150 < 20k threshold
     ]
-    result = json.loads(get_market_operations_tax_list(operations))
+    result = json.loads(orchestrator(operations))
     assert result == [{"tax": "0.00"}, {"tax": "0.00"}]
 
 
@@ -34,7 +34,7 @@ def test_buy_then_sell_above_threshold_with_profit():
             "quantity": 2000,
         },  # 20,000 = threshold
     ]
-    result = json.loads(get_market_operations_tax_list(operations))
+    result = json.loads(orchestrator(operations))
     assert result[1]["tax"] == "4000.00"
 
 
@@ -49,7 +49,7 @@ def test_multiple_operations_with_loss():
         },  # 2,000 < threshold, loss
         {"operation": "sell", "unit-cost": 60.00, "quantity": 50},  # 3,000 < threshold
     ]
-    result = json.loads(get_market_operations_tax_list(operations))
+    result = json.loads(orchestrator(operations))
     assert result[1]["tax"] == "0.00"  # First sell at loss
     assert result[2]["tax"] == "0.00"  # Second sell recovers loss (no net profit)
 
@@ -69,7 +69,7 @@ def test_large_sell_with_previous_loss():
             "quantity": 500,
         },  # 20,000 = threshold
     ]
-    result = json.loads(get_market_operations_tax_list(operations))
+    result = json.loads(orchestrator(operations))
     # First sell: 500*(20-30) = -5000 loss
     # Second sell: 500*(40-30) = 5000 profit
     # Net profit: 0, so tax should be 0
@@ -84,7 +84,7 @@ def test_position_reset_after_full_sell():
         {"operation": "buy", "unit-cost": 15.00, "quantity": 5000},
         {"operation": "sell", "unit-cost": 25.00, "quantity": 5000},  # New position
     ]
-    result = json.loads(get_market_operations_tax_list(operations))
+    result = json.loads(orchestrator(operations))
     # First sell: 10000*(20-10) = 100000 profit
     # Second sell: 5000*(25-15) = 50000 profit
     assert result[1]["tax"] == "20000.00"
@@ -102,14 +102,14 @@ def test_multiple_buys_before_sell():
             "quantity": 15000,
         },  # 3,750 < threshold
     ]
-    result = json.loads(get_market_operations_tax_list(operations))
+    result = json.loads(orchestrator(operations))
     # Weighted avg: (10*10000 + 20*10000)/20000 = 15
     # Profit: (25-15)*15000 = 1500000
     assert result[2]["tax"] == "30000.00"  # Below threshold
 
 
 def test_large_operation_with_fractional_profit():
-    """Test precision with fractional values"""
+    """Test precision with fractional values""" 
     operations = [
         {"operation": "buy", "unit-cost": 10.555, "quantity": 1000},
         {
@@ -118,7 +118,21 @@ def test_large_operation_with_fractional_profit():
             "quantity": 1000,
         },  # 20,123 > threshold
     ]
-    result = json.loads(get_market_operations_tax_list(operations))
+    result = json.loads(orchestrator(operations))
     profit = (Decimal("20.123") - Decimal("10.555")) * 1000
     expected_tax = (profit * Decimal("0.2")).quantize(Decimal("0.00"))
     assert Decimal(str(result[1]["tax"])).quantize(Decimal("0.00")) == expected_tax
+
+
+def test_buy_then_sell_more_than_available():
+    """Test buy followed by sell over available qty"""
+    operations = [
+        {"operation": "buy", "unit-cost": 10.00, "quantity": 100},
+        {
+            "operation": "sell",
+            "unit-cost": 12.00,
+            "quantity": 1000,
+        },  # 150 < 20k threshold
+    ]
+    result = json.loads(orchestrator(operations))
+    assert result == [{"tax": "0.00"}, {"error": "Can't sell more stocks than you have"}]

@@ -1,6 +1,5 @@
 from decimal import Decimal
 from main import (
-    TAX_FREE_LARGE_OPERATIONS_THRESHOLD,
     calculate_operation_profit_tax,
     calculate_operation_total_volume,
     calculate_sell_operation_profit_or_loss,
